@@ -396,9 +396,9 @@
               <FilePath>.\lprf.c</FilePath>
             </File>
             <File>
-              <FileName>maze_host.c</FileName>
+              <FileName>maze_receiver.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\maze_host.c</FilePath>
+              <FilePath>.\maze_receiver.c</FilePath>
             </File>
             <File>
               <FileName>motion.c</FileName>

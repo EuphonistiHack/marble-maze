@@ -101,7 +101,7 @@ ${COMPILER}:
 #
 ${COMPILER}/maze_receiver.axf: ${COMPILER}/buttons.o
 ${COMPILER}/maze_receiver.axf: ${COMPILER}/lprf.o
-${COMPILER}/maze_receiver.axf: ${COMPILER}/maze_host.o
+${COMPILER}/maze_receiver.axf: ${COMPILER}/maze_receiver.o
 ${COMPILER}/maze_receiver.axf: ${COMPILER}/motion.o
 ${COMPILER}/maze_receiver.axf: ${COMPILER}/remoti_npi.o
 ${COMPILER}/maze_receiver.axf: ${COMPILER}/remoti_rtis.o

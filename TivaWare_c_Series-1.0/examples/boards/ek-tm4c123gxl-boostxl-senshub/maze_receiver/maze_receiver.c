@@ -1,6 +1,9 @@
 //*****************************************************************************
 //
-// airmouse.c - Main routines for SensHub Air Mouse Demo.
+// airmouse.c - Main routines for SensHub Marble Maze demo on the receiver
+//   side.  This is the side that should be attached to the marble maze, as it
+//   receives roll, pitch, and yaw data from the transmitter and translates that
+//   to rotation of the servos attached to the X and Y axes of the marble maze.
 //
 // Copyright (c) 2012 Texas Instruments Incorporated.  All rights reserved.
 // TI Information - Selective Disclosure

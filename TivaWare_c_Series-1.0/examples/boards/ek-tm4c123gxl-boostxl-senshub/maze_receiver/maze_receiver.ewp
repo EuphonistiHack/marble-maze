@@ -787,7 +787,7 @@
       <name>$PROJ_DIR$\lprf.c</name>
     </file>
     <file>
-      <name>$PROJ_DIR$\maze_host.c</name>
+      <name>$PROJ_DIR$\maze_receiver.c</name>
     </file>
     <file>
       <name>$PROJ_DIR$\motion.c</name>

@@ -1,0 +1,26 @@
+-ccs.name maze_transmitter
+-ccs.location C:/home/jwills/pristine/DriverLib/examples/boards/ek-tm4c123gxl/maze_transmitter/ccs
+-ccs.device "Cortex M.TM4C123GH6PM"
+-ccs.cmd ""
+-ccs.rts libc.a
+-ccs.overwrite keep
+-ccs.endianness little
+-ccs.outputFormat ELF
+-ccs.outputType executable
+-ccs.definePathVariable SW_ROOT "C:\home\jwills\pristine\DriverLib"
+-ccs.definePathVariable SW_PARENT "C:\home\jwills\pristine"
+-ccs.linkFile "SW_ROOT/examples/boards/ek-tm4c123gxl/maze_transmitter/maze_transmitter.c" "."
+-ccs.linkFile "SW_ROOT/examples/boards/ek-tm4c123gxl/maze_transmitter/motion.c" "."
+-ccs.linkFile "SW_ROOT/examples/boards/ek-tm4c123gxl/maze_transmitter/lprf.c" "."
+-ccs.linkFile "SW_ROOT/examples/boards/ek-tm4c123gxl/drivers/rgb.c" "drivers"
+-ccs.linkFile "SW_ROOT/examples/boards/ek-tm4c123gxl/drivers/buttons.c" "drivers"
+-ccs.linkFile "SW_ROOT/examples/boards/ek-tm4c123gxl/maze_transmitter/remoti_uart.c" "."
+-ccs.linkFile "SW_ROOT/examples/boards/ek-tm4c123gxl/maze_transmitter/remoti_npi.c" "."
+-ccs.linkFile "SW_ROOT/examples/boards/ek-tm4c123gxl/maze_transmitter/remoti_rtis.c" "."
+-ccs.linkFile "SW_ROOT/utils/uartstdio.c" "utils"
+-ccs.linkFile "SW_ROOT/utils/ringbuf.c" "utils"
+-ccs.linkFile "SW_ROOT/examples/boards/ek-tm4c123gxl/maze_transmitter/startup_ccs.c" "."
+-ccs.linkFile "SW_ROOT/examples/boards/ek-tm4c123gxl/maze_transmitter/maze_transmitter_ccs.cmd" "."
+-ccs.setCompilerOptions " --silicon_version=7M4 --float_support=FPv4SPD16 --abi=eabi --code_state=16 --gen_func_subsections=on -O2 --gcc --ual -D=ccs=\"ccs\" -D=PART_TM4C123GH6PM -D=TARGET_IS_BLIZZARD_RB1 -D=UART_BUFFERED -I=\"${SW_ROOT}/examples/boards/ek-tm4c123gxl\" -I=\"${SW_ROOT}\""
+-ccs.setLinkerOptions " -m=maze_transmitter_ccs.map --stack_size=16384 --heap_size=0 --rom_model -l \"${SW_ROOT}/driverlib/ccs/Debug/driverlib.lib\" -l \"${SW_ROOT}/sensorlib/ccs/Debug/sensorlib.lib\""
+-ccs.setPostBuildStep "\"${CCE_INSTALL_ROOT}/utils/tiobj2bin/tiobj2bin\" \"${BuildArtifactFileName}\" \"${BuildArtifactFileBaseName}.bin\" \"${CG_TOOL_ROOT}/bin/armofd\" \"${CG_TOOL_ROOT}/bin/armhex\" \"${CCE_INSTALL_ROOT}/utils/tiobj2bin/mkhex4bin\""

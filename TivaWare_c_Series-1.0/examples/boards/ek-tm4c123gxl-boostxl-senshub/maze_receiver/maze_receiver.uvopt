@@ -217,8 +217,8 @@
       <TopLine>0</TopLine>
       <CurrentLine>0</CurrentLine>
       <bDave2>0</bDave2>
-      <PathWithFileName>.\maze_host.c</PathWithFileName>
-      <FilenameWithoutPath>maze_host.c</FilenameWithoutPath>
+      <PathWithFileName>.\maze_receiver.c</PathWithFileName>
+      <FilenameWithoutPath>maze_receiver.c</FilenameWithoutPath>
     </File>
     <File>
       <GroupNumber>1</GroupNumber>

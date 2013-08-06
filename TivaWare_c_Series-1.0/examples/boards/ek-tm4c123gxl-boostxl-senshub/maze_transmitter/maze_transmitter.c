@@ -1,6 +1,9 @@
 //*****************************************************************************
 //
-// airmouse.c - Main routines for SensHub Air Mouse Demo.
+// maze_transmitter.c - Main routines for SensHub Marble Maze demo on the
+//   transmitter side.  This is the side that is not connected to the marble
+//   maze.  It is responsible for generating roll, pitch, and yaw data and
+//   transmitting it down to the receiver using the CC2533EM transceiver.
 //
 // Copyright (c) 2012 Texas Instruments Incorporated.  All rights reserved.
 // TI Information - Selective Disclosure
