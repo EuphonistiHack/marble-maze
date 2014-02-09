@@ -10,7 +10,6 @@
 -ccs.definePathVariable SW_ROOT "C:\home\jwills\pristine\DriverLib"
 -ccs.definePathVariable SW_PARENT "C:\home\jwills\pristine"
 -ccs.linkFile "SW_ROOT/examples/boards/ek-tm4c123gxl/maze_receiver/maze_receiver.c" "."
--ccs.linkFile "SW_ROOT/examples/boards/ek-tm4c123gxl/maze_receiver/motion.c" "."
 -ccs.linkFile "SW_ROOT/examples/boards/ek-tm4c123gxl/maze_receiver/lprf.c" "."
 -ccs.linkFile "SW_ROOT/examples/boards/ek-tm4c123gxl/drivers/rgb.c" "drivers"
 -ccs.linkFile "SW_ROOT/examples/boards/ek-tm4c123gxl/drivers/buttons.c" "drivers"

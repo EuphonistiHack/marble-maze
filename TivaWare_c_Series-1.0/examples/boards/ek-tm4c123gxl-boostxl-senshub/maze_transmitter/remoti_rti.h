@@ -484,6 +484,20 @@ typedef struct
 
 //*****************************************************************************
 //
+// node capabilities
+//
+//*****************************************************************************
+#define RTI_NODE_CAP_CONTROLLER		0x00
+#define RTI_NODE_CAP_TARGET			0x01
+#define RTI_NODE_CAP_POWER_BATT		0x00
+#define RTI_NODE_CAP_POWER_AC		0x02
+#define RTI_NODE_CAP_SEC_DIS		0x00
+#define RTI_NODE_CAP_SEC_EN			0x04
+#define RTI_NODE_CAP_CH_NORM_DIS	0x00
+#define RTI_NODE_CAP_CH_NORM_EN		0x08
+
+//*****************************************************************************
+//
 // vendor identifiers
 //
 //*****************************************************************************

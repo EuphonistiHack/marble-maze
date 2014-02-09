@@ -21,11 +21,7 @@
 #include "driverlib/gpio.h"
 #include "driverlib/interrupt.h"
 #include "driverlib/pin_map.h"
-#if LAUNCHPAD_TIVA
-#include "driverlib/pwm.h"
-#else
 #include "driverlib/timer.h"
-#endif
 #include "driverlib/rom.h"
 #include "driverlib/sysctl.h"
 #include "driverlib/systick.h"
@@ -45,7 +41,6 @@
 #include "usblib/device/usbdhidmouse.h"
 #include "usblib/device/usbdhidkeyb.h"
 #include "events.h"
-#include "motion.h"
 #include "lprf.h"
 
 //*****************************************************************************
@@ -136,6 +131,17 @@ volatile uint_fast32_t g_ui32SysTickCount;
 #define DESCRIPTOR_DATA_SIZE    (COMPOSITE_DHID_SIZE + COMPOSITE_DHID_SIZE)
 uint8_t g_pui8DescriptorData[DESCRIPTOR_DATA_SIZE];
 
+//*****************************************************************************
+//
+// Set up constants to make the timer PWM math a bit easier.  Assuming 40 MHz
+// system clock.
+//
+//*****************************************************************************
+#define TICKS_PER_SEC		40000000UL
+#define PWM_DIV				(16UL)
+#define PWM_TICKS_PER_SEC 	(TICKS_PER_SEC / PWM_DIV)
+#define PWM_TICKS_PER_MS	(PWM_TICKS_PER_SEC / 1000UL)
+#define PWM_BASE_LENGTH		(20UL * PWM_TICKS_PER_MS)
 
 //*****************************************************************************
 //
@@ -170,12 +176,7 @@ Timer5BIntHandler(void)
 {
 	static uint8_t ui8Ping = 0;
 	uint16_t ui16ActiveWidth;
-	float fDeltaY;
 
-//	fDeltaY = getDeltaY();
-
-
-	//ui16ActiveWidth = 3750 + (fDeltaY * 1250);
 	ui16ActiveWidth = getYPWMWidth();
 
 	if(ui8Ping)
@@ -208,19 +209,20 @@ Timer5AIntHandler(void)
 {
 	static uint8_t ui8Ping = 0;
 	uint16_t ui16ActiveWidth;
-	float fDeltaX;
 
-	//fDeltaX = -1 * getDeltaX();
-
+//
+// Use the following for debug.  Servo will start centered, rotate max right on
+// or max left left or right pushbutton press
+//
 #if 0
     if (g_ui8Buttons & RIGHT_BUTTON)
     {
-    	ui16ActiveWidth = 5000;
+    	ui16ActiveWidth = 6000;
     	UARTprintf("r");
     }
     else if(g_ui8Buttons & LEFT_BUTTON)
     {
-    	ui16ActiveWidth = 2500;
+    	ui16ActiveWidth = 1500;
     	UARTprintf("l");
     }
     else
@@ -228,7 +230,6 @@ Timer5AIntHandler(void)
     	ui16ActiveWidth = 3750;
     }
 #else
-    //ui16ActiveWidth = 3750 + (fDeltaX * 1250);
     ui16ActiveWidth = getXPWMWidth();
 #endif
     if(ui8Ping)
@@ -251,120 +252,65 @@ Timer5AIntHandler(void)
     TimerEnable(TIMER5_BASE, TIMER_A);
 }
 
-#if LAUNCHPAD_TIVA
-#define PWM_TICKS_PER_SEC			(40000000/64)
 void
 EnablePWMs(void)
 {
-	unsigned long ulPeriod;
-
-	SysCtlPWMClockSet(SYSCTL_PWMDIV_64);
-
-	SysCtlPeripheralEnable(SYSCTL_PERIPH_PWM1);
-
-	SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOD);
-
-	GPIOPinConfigure(GPIO_PD1_M1PWM1);
-
-	GPIOPinTypePWM(GPIO_PORTD_BASE, GPIO_PIN_1);
-
 	//
-	// Set the period to 20 ms
+	// The timer5 peripheral will be used to generate the PWM control signal to
+	// the servos
 	//
-	ulPeriod = PWM_TICKS_PER_SEC * 20;
-
-	ROM_PWMGenConfigure(PWM1_BASE, PWM_GEN_1, PWM_GEN_MODE_UP_DOWN | PWM_GEN_MODE_NO_SYNC);
-
-	ROM_PWMGenPeriodSet(PWM1_BASE, PWM_GEN_1, ulPeriod);
-
-	ROM_PWMPulseWidthSet(PWM1_BASE, PWM_OUT_1, ulPeriod/2);
-
-	ROM_PWMOutputState(PWM1_BASE, PWM_OUT_1_BIT, true);
-
-	ROM_PWMGenEnable(PWM1_BASE, PWM_GEN_1);
-}
-#else
-
-#define TICKS_PER_SEC		40000000
-#define PWM_DIV				(16)
-#define PWM_TICKS_PER_SEC 	(TICKS_PER_SEC / PWM_DIV)
-#define PWM_TICKS_PER_MS	(PWM_TICKS_PER_SEC / 1000)
-void
-EnablePWMs(void)
-{
     SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER5);
 
+    //
+    // Configure Timer5A and Timer5B to generate the two control signals
+    //
     TimerConfigure(TIMER5_BASE, TIMER_CFG_SPLIT_PAIR | TIMER_CFG_A_ONE_SHOT |
     			   TIMER_CFG_B_ONE_SHOT);
-    TimerPrescaleSet(TIMER5_BASE, TIMER_A, 15);
-    TimerLoadSet(TIMER5_BASE, TIMER_A, 50000);
-    IntEnable(INT_TIMER5A);
-	TimerPrescaleSet(TIMER5_BASE, TIMER_B, 15);
-	TimerLoadSet(TIMER5_BASE, TIMER_B, 50000);
-	IntEnable(INT_TIMER5B);
-    IntMasterEnable();
-    TimerIntEnable(TIMER5_BASE, TIMER_TIMA_TIMEOUT | TIMER_TIMB_TIMEOUT);
-    //TimerIntEnable(TIMER5_BASE, TIMER_TIMA_TIMEOUT);
 
+    //
+    // Set the prescaler to divide the clock down by 16 (40 MHz is too fast to
+    // count to 20 mS with a 16 bit timer)
+    //
+    TimerPrescaleSet(TIMER5_BASE, TIMER_A, 15);
+    TimerPrescaleSet(TIMER5_BASE, TIMER_B, 15);
+
+    //
+    // Set the timers to the servo PWM base of 20 ms.
+    //
+    TimerLoadSet(TIMER5_BASE, TIMER_A, 20 * PWM_TICKS_PER_MS);
+	TimerLoadSet(TIMER5_BASE, TIMER_B, 20 * PWM_TICKS_PER_MS);
+
+	//
+	// Enable the individual timer interrupts
+	//
+    IntEnable(INT_TIMER5A);
+	IntEnable(INT_TIMER5B);
+
+	//
+	// Enable all system interrupts
+	//
+    IntMasterEnable();
+
+    //
+    // Enable the peripheral level interrupts
+    //
+    TimerIntEnable(TIMER5_BASE, TIMER_TIMA_TIMEOUT | TIMER_TIMB_TIMEOUT);
+
+    //
+    // Enable the GPIO pins that will be used for the PWM control signal
+    //
     SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOD);
 
-    GPIOPinTypeGPIOOutput(GPIO_PORTD_BASE, GPIO_PIN_1 | GPIO_PIN_0);   // this port now set to output
+    //
+    // Set the GPIO pin directions to output
+    //
+    GPIOPinTypeGPIOOutput(GPIO_PORTD_BASE, GPIO_PIN_1 | GPIO_PIN_0);
 
+    //
+    // Initialize the PWM control pins to low
+    //
     GPIOPinWrite(GPIO_PORTD_BASE, GPIO_PIN_1 | GPIO_PIN_0, 0);
-
-
-#if 0
-    //
-    // The Timer2 peripheral must be enabled for use.
-    //
-    SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER1);
-
-    //
-    // For this example T2CCP0 and 1 are used with port D pins 0 and 1
-    // GPIO port D needs to be enabled so these pins can be used.
-    //
-    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOB);
-
-    //
-    // Configure the GPIO pin muxing for the Timer/CCP function.
-    //
-    GPIOPinConfigure(GPIO_PB4_T1CCP0);
-
-    //
-    // Configure the ccp settings for CC pin.
-    //
-    GPIOPinTypeTimer(GPIO_PORTB_BASE, GPIO_PIN_4);
-
-    //
-	// Configure Timer2B as a 16-bit periodic timer.
-	//
-	TimerConfigure(TIMER1_BASE, TIMER_CFG_SPLIT_PAIR | TIMER_CFG_A_PWM);
-
-	//
-	// Configure the prescaler to divide by 16
-	//
-	TimerPrescaleSet(TIMER1_BASE, TIMER_A, 15);
-
-	//
-	// Set the Timer1B load value to 20 ms.  For neutral servo position, a
-	// pulse of 1.5 ms is used.  From the load value down to the match value,
-	// the signal will be high.  From the match value ot 0, the signal will be
-	// low.
-	//
-	TimerLoadSet(TIMER1_BASE, TIMER_A, 5000);//PWM_TICKS_PER_MS * 20);
-
-	//
-	// Set the Timer1B match value to load a value of 1.5 ms.
-	//
-	TimerMatchSet(TIMER1_BASE, TIMER_A, TimerLoadGet(TIMER1_BASE, TIMER_A) / 3);//50000/3);
-
-	//
-	// Enable Timer1B.
-	//
-	TimerEnable(TIMER1_BASE, TIMER_A);
-#endif //0'd out pwm timer code
 }
-#endif
 
 
 //*****************************************************************************
@@ -402,9 +348,6 @@ ConfigureUART(void)
     //
     UARTStdioConfig(0, 115200, 16000000);
 }
-
-// Pairing reference
-uint8_t destIdx;
 
 //*****************************************************************************
 //
@@ -465,11 +408,6 @@ main(void)
     ButtonsInit();
     RGBInit(0);
     RGBEnable();
-
-    //
-    // Initialize the motion sub system.
-    //
-    //MotionInit();
 
     //
     // Initialize the Radio Systems.

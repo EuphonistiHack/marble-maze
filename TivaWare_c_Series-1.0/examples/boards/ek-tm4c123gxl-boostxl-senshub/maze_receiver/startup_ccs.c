@@ -41,8 +41,6 @@ extern uint32_t __STACK_TOP;
 // External declarations for the interrupt handlers used by the application.
 //
 //*****************************************************************************
-extern void IntGPIOb(void);
-extern void MotionI2CIntHandler(void);
 extern void SysTickIntHandler(void);
 extern void Timer5AIntHandler(void);
 extern void Timer5BIntHandler(void);
@@ -78,7 +76,7 @@ void (* const g_pfnVectors[])(void) =
     IntDefaultHandler,                      // The PendSV handler
     SysTickIntHandler,                      // The SysTick handler
     IntDefaultHandler,                      // GPIO Port A
-    IntGPIOb,                               // GPIO Port B
+    IntDefaultHandler,                      // GPIO Port B
     IntDefaultHandler,                      // GPIO Port C
     IntDefaultHandler,                      // GPIO Port D
     IntDefaultHandler,                      // GPIO Port E
@@ -146,7 +144,7 @@ void (* const g_pfnVectors[])(void) =
     0,                                      // Reserved
     0,                                      // Reserved
     IntDefaultHandler,                      // I2C2 Master and Slave
-    MotionI2CIntHandler,                    // I2C3 Master and Slave
+    IntDefaultHandler,                      // I2C3 Master and Slave
     IntDefaultHandler,                      // Timer 4 subtimer A
     IntDefaultHandler,                      // Timer 4 subtimer B
     0,                                      // Reserved

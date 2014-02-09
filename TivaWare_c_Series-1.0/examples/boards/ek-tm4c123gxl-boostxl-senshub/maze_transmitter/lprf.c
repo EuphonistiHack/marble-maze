@@ -23,8 +23,8 @@
 //
 //*****************************************************************************
 
-#include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
 #include "inc/hw_memmap.h"
@@ -33,10 +33,10 @@
 #include "driverlib/pin_map.h"
 #include "driverlib/gpio.h"
 #include "driverlib/sysctl.h"
+#include "driverlib/timer.h"
 #include "driverlib/rom.h"
 #include "driverlib/interrupt.h"
 #include "drivers/rgb.h"
-#include "driverlib/timer.h"
 #include "remoti_uart.h"
 #include "remoti_npi.h"
 #include "remoti_rti.h"
@@ -52,8 +52,6 @@
 #include "utils/uartstdio.h"
 #include "drivers/buttons.h"
 #include "events.h"
-#include "motion.h"
-
 #include "nodeConfig.h"
 
 #if  !defined (DEV_IS_CONTROLLER)  && !defined (DEV_IS_TARGET)
@@ -104,6 +102,14 @@ volatile uint_fast8_t g_vui8LinkState;
 uint8_t g_ui8LinkDestIndex;
 
 uint8_t g_ui8Sending;
+
+#ifdef DEV_IS_TARGET
+uint16_t g_ui16YWidth = SERVO_NEUTRAL_POSITION;
+uint16_t g_ui16XWidth = SERVO_NEUTRAL_POSITION;
+
+float g_fDeltaX;
+float g_fDeltaY;
+#endif
 
 //*****************************************************************************
 //
@@ -201,7 +207,7 @@ ZIDResetRNP(void)
     //
     // Assert reset to the RNP.
     //
-    ROM_GPIOPinWrite(GPIO_PORTC_BASE, GPIO_PIN_7, 0);
+    ROM_GPIOPinWrite(EM_RESET_GPIO_PORT, EM_RESET_GPIO_PIN, 0);
 
     //
     // Hold reset low for about 8 milliseconds to verify reset is detected
@@ -211,7 +217,7 @@ ZIDResetRNP(void)
     //
     //Release reset to the RNP
     //
-    ROM_GPIOPinWrite(GPIO_PORTC_BASE, GPIO_PIN_7, GPIO_PIN_7);
+    ROM_GPIOPinWrite(EM_RESET_GPIO_PORT, EM_RESET_GPIO_PIN, EM_RESET_GPIO_PIN);
 
     //
     // Delay to allow RNP to do its internal boot.
@@ -235,6 +241,7 @@ ZIDConfigParams(void)
 
     g_ui8Sending = 0;
     UARTprintf("start config\n");
+
 
     pui8Value[0] = eRTI_CLEAR_STATE;
 
@@ -571,7 +578,7 @@ RTI_AllowPairCnf(uint8_t ui8Status, uint8_t ui8DestIndex,
 
 #ifdef DEV_IS_TARGET
     //
-    // For maze_host, we are the target, so our pairing callback is
+    // For maze_receiver, we are the target, so our pairing callback is
     // AllowPairCnf, not PairCnf.
     //
 
@@ -659,7 +666,6 @@ RTI_SendDataCnf(uint8_t ui8Status)
 	{
 		UARTprintf("senddatacnf error! 0x%02x\n", ui8Status);
 	}
-	//UARTprintf("data sent\n");
 
     //
     // Set the link state to ready.
@@ -758,41 +764,33 @@ RTI_ReceiveDataInd(uint8_t ui8SrcIndex, uint8_t ui8ProfileId,
                    uint16_t ui16VendorID, uint8_t ui8RXLinkQuality,
                    uint8_t ui8RXFlags, uint8_t ui8Length, uint8_t *pui8Data)
 {
-	int i;
 
+#ifdef DEV_IS_TARGET
+    int16_t i16Roll, i16Pitch;
+
+    if(ui8Length < 17)
+    {
+    	UARTprintf("len error!\n");
+    }
+    i16Roll = strtol((const char*)pui8Data, NULL, 10);
+    i16Pitch = strtol((const char*)pui8Data+6, NULL, 10);
+
+    g_fDeltaX = ((float)i16Roll/(float)1200);
+    g_fDeltaY = ((float)i16Pitch/(float)1800);
+
+    g_ui16XWidth = SERVO_NEUTRAL_POSITION + (g_fDeltaX * 2250);
+    g_ui16YWidth = SERVO_NEUTRAL_POSITION + (-1 * g_fDeltaY * 2250);
+
+    UARTprintf("RX: %s", pui8Data);
+    UARTprintf("Roll: %5d, Pitch: %5d\r", i16Roll/10, i16Pitch/10);
+
+#else
+    int i;
 	UARTprintf("rxd len %d: ", ui8Length);
 	for(i=0;i<ui8Length;i++)
 	{
 		UARTprintf("0x%02x ", pui8Data[i]);
 	}
-
-#ifdef DEV_IS_CONTROLLER
-#if 0
-    static int16_t i16RPYData[3];
-
-    MotionGetRPY(i16RPYData, i16RPYData+1, i16RPYData+2);
-
-    if(pui8Data[0] == 0xA5)
-    {
-    	UARTprintf("Ack\n");
-    	i16RPYData[0] = 0x1234;
-    	RTI_SendDataReq(g_ui8LinkDestIndex, RTI_PROFILE_ZRC,
-						RTI_VENDOR_TEXAS_INSTRUMENTS, ui8TXOptions, 2,//6,
-						(uint8_t *)i16RPYData);
-    }
-#endif
-#else
-    static uint8_t ui8Ack = 0xA5;
-    int16_t i16Roll, i16Pitch, i16Yaw;
-
-    i16Roll = pui8Data[0] & (pui8Data[1] << 8);
-    i16Pitch = pui8Data[2] & (pui8Data[3] << 8);
-    i16Yaw = pui8Data[4] & (pui8Data[5] << 8);
-
-    UARTprintf("Roll: %4d, Pitch: %4d, Yaw: %4d\n", i16Roll, i16Pitch, i16Yaw);
-
-    RTI_SendDataReq(g_ui8LinkDestIndex, RTI_PROFILE_ZRC,
-					RTI_VENDOR_TEXAS_INSTRUMENTS, ui8TXOptions, 1, &ui8Ack);
 #endif
 }
 
@@ -842,7 +840,6 @@ RTI_AsynchMsgProcess(void)
     // Get the msg from the UART low level driver
     //
     RemoTIUARTGetMsg((uint8_t *) &sMsg, NPI_MAX_DATA_LEN);
-
     if ((sMsg.ui8SubSystem & 0x1F) == RPC_SYS_RCAF)
     {
         switch((unsigned long) sMsg.ui8CommandID)
@@ -908,6 +905,41 @@ RTI_AsynchMsgProcess(void)
 
 //*****************************************************************************
 //
+// We need a clean way for the timer interrupt handler (in maze_receiver) to
+// get access to the needed PWM width that we calculated based on what we
+// received (in this file).  The following is hacky and stupid, which is what
+// happens when you don't want to do proper architecture practices before
+// hacking away at a problem.  I am ashamed.
+//
+//*****************************************************************************
+#ifdef DEV_IS_TARGET
+uint16_t
+getXPWMWidth(void)
+{
+	return(g_ui16XWidth);
+}
+
+uint16_t
+getYPWMWidth(void)
+{
+	return(g_ui16YWidth);
+}
+
+float
+getDeltaX(void)
+{
+	return(g_fDeltaX);
+}
+
+float
+getDeltaY(void)
+{
+	return(g_fDeltaY);
+}
+#endif
+
+//*****************************************************************************
+//
 //
 //*****************************************************************************
 void
@@ -927,8 +959,8 @@ LPRFInit(void)
     //
     // Configure the CC2533 Reset pin
     //
-    ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOC);
-    ROM_GPIOPinTypeGPIOOutput(GPIO_PORTC_BASE, GPIO_PIN_7);
+    ROM_SysCtlPeripheralEnable(EM_RESET_SYSCTL_PERIPH);
+    ROM_GPIOPinTypeGPIOOutput(EM_RESET_GPIO_PORT, EM_RESET_GPIO_PIN);
 
     g_ui8LinkDestIndex = RTI_INVALID_PAIRING_REF;
 
@@ -950,13 +982,10 @@ LPRFInit(void)
 void
 LPRFMain(void)
 {
-#if 0
-    int8_t i8DeltaX, i8DeltaY;
-    uint8_t ui8Buttons;
-    bool bSendIt, bButtonChange;
+#ifdef DEV_IS_CONTROLLER
+	uint8_t ui8TXOptions = 0;
+	static char pucOutStr[64];
 #endif
-    uint8_t ui8TXOptions = 0;
-    static char pucOutStr[64];
 
     //
     // First determine if we need to process a asynchronous message, such as
@@ -1006,27 +1035,28 @@ LPRFMain(void)
     else if(g_vui8LinkState == LINK_STATE_READY)
     {
     	//
-    	// We are connected, turn on the green LED
+    	// We are connected, turn on the green LED, turn off the red.
     	//
     	g_pui32RGBColors[GREEN] = 0x4000;
     	g_pui32RGBColors[RED] = 0;
     	RGBColorSet(g_pui32RGBColors);
 
 #ifdef DEV_IS_CONTROLLER
-    static int16_t i16RPYData[3];
+		static int16_t i16RPYData[3];
 
-    if(!g_ui8Sending)
-    {
-		MotionGetRPY(i16RPYData, i16RPYData+1, i16RPYData+2);
-		sprintf(pucOutStr, "%05d %05d %05d", i16RPYData[0], i16RPYData[1], i16RPYData[2]);
-		UARTprintf("%s, len %d\n", pucOutStr, strlen(pucOutStr));
-		RTI_SendDataReq(g_ui8LinkDestIndex, RTI_PROFILE_ZRC,
-						RTI_VENDOR_TEXAS_INSTRUMENTS, ui8TXOptions, strlen(pucOutStr),
-						(uint8_t *)pucOutStr);
-		TimerLoadSet(TIMER4_BASE, TIMER_A, 40000000/10);
-		TimerEnable(TIMER4_BASE, TIMER_A);
-		g_ui8Sending = 1;
-    }
+		if(!g_ui8Sending)
+		{
+			MotionGetRPY(i16RPYData, i16RPYData+1, i16RPYData+2);
+			sprintf(pucOutStr, "%05d %05d %05d", i16RPYData[0], i16RPYData[1],
+					i16RPYData[2]);
+			UARTprintf("%s, len %d\n", pucOutStr, strlen(pucOutStr));
+			RTI_SendDataReq(g_ui8LinkDestIndex, RTI_PROFILE_ZRC,
+							RTI_VENDOR_TEXAS_INSTRUMENTS, ui8TXOptions,
+							strlen(pucOutStr), (uint8_t *)pucOutStr);
+			TimerLoadSet(TIMER4_BASE, TIMER_A, 40000000/10);
+			TimerEnable(TIMER4_BASE, TIMER_A);
+			g_ui8Sending = 1;
+		}
 #endif
     }
 }

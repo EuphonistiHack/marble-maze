@@ -21,6 +21,14 @@
 
 //*****************************************************************************
 //
+// Number of timer perihperal ticks needed to get an active PWM width for the
+// servo to go to its neutral position
+//
+//*****************************************************************************
+#define SERVO_NEUTRAL_POSITION	3750
+
+//*****************************************************************************
+//
 // Global system tick counter.  incremented by SysTickIntHandler.
 //
 //*****************************************************************************
